@@ -5,17 +5,28 @@ require 'rfile'
 
 class Dalek 
   
-  def initialize(name, server, port, realname, channels={'#dalek' => nil}, logfile=$stderr)
+  def initialize(name, server, port, realname, channels=['#dalek'], logfile=$stderr)
     @logger = Logger.new logfile
     @logger.info "Dalek Caan, Starting up."
     @irc = IRC.new(name, server, port, realname)
     IRCEvent.add_callback('')
     @channels = channels
-    @triggers = ['doctor', 'rose', 'donna', 'dalek', 'caan' ]
+    @logger.info "Channels = #{@channels.inspect}"
+    @triggers = ['doctor', 'rose', 'dalek', 'caan', 'botcheck' ]
+    @logger.info "Triggers = #{@triggers.inspect}"
     @quotes = RFile.new "realquotes.txt", true
     add_channels
     
     IRCEvent.add_callback('privmsg') do |event|
+    
+      # commands
+      /^!(?<cmd>\w+)/ =~ event.message.downcase
+      
+      cmd == "triggers" and @irc.send_message(event.channel, "You will bear witness that my triggers include: #{@triggers.inspect}. Your human triggers reek of weakness and failure.")
+      cmd == "end" and @irc.send_message(event.channel, "We are not ready yet, to teach these human beings, the law of the Daleks! However, we can reveal that there are #{@quotes.length} lines left in the cycle.")
+      cmd == "cycle" and @irc.send_message(event.channel, "You are not worthy.")
+      
+      # triggers
       @triggers.each do |t|
         if event.message.downcase.include? t
           @irc.send_message(event.channel, next_quote)
@@ -28,13 +39,8 @@ class Dalek
     
     IRCEvent.add_callback('endofmotd') do |event| 
 
-      @channels.each_pair do |channel, key|
-        if @key.nil?
-          @irc.add_channel(channel)
-        else
-          @logger.info IRCConnection.send_to_server("JOIN #{channel} #{key}")
-          @irc.channels.push(channel)
-        end
+      @channels.each do |channel|
+        @irc.add_channel(channel)
         @logger.info "Channel #{channel} added" 
       end
     end
@@ -53,6 +59,3 @@ class Dalek
     @quotes.randomline.split(':')[1]
   end
 end
-
-caan = Dalek.new('Dalek', 'irc.nogoodshits.net', 6667, 'Dalek Caan', {"#dalek-too" => "Ooof"})
-caan.start
